@@ -60,11 +60,3 @@ docs/
   balance_report.md     — relatório de balanceamento gerado
   screenshot*           — capturas de tela
 ```
-
-## Publicar versão jogável no navegador (para apresentação)
-
-```bash
-pip install pygbag
-pygbag main.py            # gera a pasta build/
-# faça push para o GitHub e ative GitHub Pages apontando para build/
-```
