@@ -36,7 +36,7 @@ gh repo create <username>/simple-world-iaj --public --source=. --push
 Then enable **Pages** on the repository (branch `main`, folder `/build`) — the game will be available at the link:
 
 ```
-https://<username>.github.io/simple-world-iaj/
+https://ShinigameBR.github.io/python-simple-world-iaj/
 ```
 
 <br/>

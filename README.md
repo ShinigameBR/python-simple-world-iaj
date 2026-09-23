@@ -9,6 +9,12 @@ de carregamento** mantém ativas as áreas ao redor do jogador — **no máximo
 Objetivo: **sobreviver pelo tempo configurado** (`survival_time`,
 padrão 90s).
 
+## 🕹️ Jogar agora (no navegador)
+
+Compilado para WebAssembly com **pygbag** e hospedado no **GitHub Pages**:
+
+**https://ShinigameBR.github.io/python-simple-world-iaj/**
+
 ## Executar
 
 ```bash
