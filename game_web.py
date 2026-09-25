@@ -23,6 +23,10 @@ from game.world import World
 CONFIG_NAME = "config.json"
 _HERE = Path(__file__).resolve().parent
 
+# Sobe quando o formato do snapshot muda. O index.html compara esse valor com
+# o dele para detectar um game_web.py antigo servido do cache do navegador/CDN.
+MODEL_VERSION = "2"
+
 
 def _find_config() -> Path:
     """Procura o config.json perto do modulo, na raiz ou um nivel acima."""
