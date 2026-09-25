@@ -1,435 +1,397 @@
-<html lang="en-us"><script src="https://pygame-web.github.io/cdn/0.9.3/pythons.js" type=module id="site" data-python="python3.12" data-LINES=42 data-COLUMNS=132 data-os="vtx,snd,gui" async defer>#<!--
-
-print("""
-Loading Simple World from simple-world.apk
-    Pygbag Version : 0.9.3
-    Template Version : 0.9.3
-    Python  : 3.12
-    CDN URL : https://pygame-web.github.io/cdn/0.9.3/
-    Screen  : 1280x720
-    Title   : Simple World
-    Folder  : simple-world
-    Authors : pgw
-    SPDX-License-Identifier: cookiecutter.spdx
-
-""")
-
-import sys
-import asyncio
-import platform
-import json
-from pathlib import Path
-
-# do not rename
-async def custom_site():
-    import embed
-    platform.document.body.style.background = "#7f7f7f"
-
-    platform.window.transfer.hidden = true
-    platform.window.canvas.style.visibility = "visible"
-
-
-    bundle = "simple-world"
-
-    # the C or js loader could do that but be explicit.
-    appdir = Path(f"/data/data/{bundle}") # /data/data/simple-world
-    appdir.mkdir()
-
-
-    # unpack filesystem from compressed archive into work dir
-    if platform.window.location.host.find('.itch.zone')>0:
-        import zipfile
-        async with platform.fopen("simple-world.apk", "rb") as archive:
-            with zipfile.ZipFile(archive) as zip_ref:
-                zip_ref.extractall(appdir.as_posix())
-    else:
-        import tarfile
-        async with platform.fopen("simple-world.tar.gz", "rb") as archive:
-            tar = tarfile.open(fileobj=archive, mode="r:gz")
-            tar.extractall(path=appdir.as_posix(), filter='tar')
-            tar.close()
-
-    # preloader will change to work dir and prepend it to sys.path
-    platform.run_main(PyConfig, loaderhome= appdir / "assets", loadermain=None)
-
-
-    # wait preloading complete : that includes images and wasm compilation of bundled modules
-    while embed.counter()<0:
-        await asyncio.sleep(.1)
-
-    main = appdir / "assets" / "main.py"
-
-    # TODO: test for window.webkitAudioContext and block aio loop until gesture if accessing media manager play
-    # before a gesture is recorded ( touch or click )
-
-    # test/wait user media interaction
-    if not platform.window.MM.UME:
-
-        # now that apk is mounted we have access to font cache
-        # but we need to fill __file__ that is not yet set
-        __import__(__name__).__file__ = main
-
-        # now make a prompt
-        msg  = "Ready to start ! Please click/touch page"
-        platform.window.infobox.innerText = msg
-        print("\n"*4, f"    * Waiting for media user engagement. {msg} *" , "\n"*4)
-
-        while not platform.window.MM.UME:
-            await asyncio.sleep(.1)
-
-    # start async top level machinery if not started and add a console in any case if requested.
-    await TopLevel_async_handler.start_toplevel(platform.shell, console=window.python.config.debug)
-
-    # now that apk is mounted we have access to font cache
-    # but we need to fill __file__/__name__ that are not yet set
-    __import__(__name__).__file__ = main
-
-
-    def ui_callback(pkg):
-        platform.window.infobox.innerText = f"installing {pkg}"
-
-    await shell.source(main, callback=ui_callback)
-
-    # if you don't reach that step
-    # your main.py has an infinite sync loop somewhere !
-
-    platform.window.infobox.style.display = "none"
-    platform.window.config.gui_divider = 1
-    platform.window.window_resize()
-    print("default.tmpl: done")
-
-    shell.interactive()
-
-asyncio.run( custom_site() )
-
-
-
-
-
-
-
-
-
-
-
-
-# BEGIN BLOCK
-#
-# now this is the html part you can (and should) customize
-# It is not mandatory : pygame-script when it reads the first line (also called
-# shebang ) of above code create absolute minimal widget set
-# required for running with default rules
-#
-# do not alter that comment block it is separating python code from html code
-# =============================================================================
-# --></script><head><!--
-//=============================================================================
-//
-//
-//
-//
-//
-//
-//
-
-    {%- if cookiecutter.comment != "" -%}
-{{cookiecutter.comment}}
-    {% endif %}
-
---><script type="application/javascript">
-// END BLOCK
-
-
-
-// this dict is available under PyConfig.config from __main__
-
-config = {
-    xtermjs : "1" ,
-    _sdl2 : "canvas",
-    user_canvas : 0,
-    user_canvas_managed : 0,
-    gui_divider : 2,
-    ume_block : 0,
-    can_close : 0,
-    archive : "simple-world",
-    gui_debug : 2,
-    cdn : "https://pygame-web.github.io/cdn/0.9.3/",
-    autorun : 0,
-    PYBUILD : "3.12",
-    fb_ar   :  1.77,
-    fb_width : "1280",
-    fb_height : "720"
-}
-
-function show_infobox() {
-    infobox.style.display = "block";
-
-    // Measure box
-    const w = infobox.offsetWidth;
-    const h = infobox.offsetHeight;
-
-    // Center in viewport
-    const left = (window.innerWidth - w) / 2;
-    const top = (window.innerHeight - h) / 2;
-
-    infobox.style.left = left + "px";
-    infobox.style.top = top + "px";
-}
-
-</script>
-
-    <title>Simple World</title>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="viewport" content="height=device-height, initial-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes"/>
-
-
-    <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
-
-    <style>
-        #status {
-            display: inline-block;
-            vertical-align: top;
-            margin-top: 20px;
-            margin-left: 30px;
-            font-weight: bold;
-            color: rgb(120, 120, 120);
-        }
-
-        #progress {
-            height: 20px;
-            width: 300px;
-        }
-
-        #infobox {
-            position: fixed; /* center relative to viewport */
-            background: green;
-            color: blue;
-            font-weight: bold;
-            padding: 12px 24px;
- /*           display: none; */
-            z-index: 999999;
-        }
-        div.emscripten { text-align: center; }
-        div.emscripten_border { border: 1px solid black; }
-        div.thick_border { border: 4px solid black; }
-
-        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-        /* average size of droid screen 470dp x 320dp  */
-        canvas.emscripten {
-            border: 0px none;
-            background-color: transparent;
-            width: 100%;
-            height: 100%;
-            z-index: 5;
-
-            padding: 0;
-            margin: 0 auto;
-
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-        }
-
-        body {
-            font-family: arial;
-            margin: 0;
-            padding: none;
-            background-color:powderblue;
-        }
-
-        .topright{
-           position:absolute;
-           top:0px;
-           right:0px;
-        }
-
-        .bottomright {
-            position:absolute;
-            top: 40%;
-            right: 0px;
-        }
-
-        .center {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .trinfo{
-           position: relative;
-           right: 0px;
-           border: 1px solid black;
-        }
-
-        .framed{
-           position: relative;
-           top: 150px;
-           right: 10px;
-           border: 1px solid black;
-        }
-    </style>
-
-    <script>
-/*
-        if (navigator.serviceWorker)
-            navigator.serviceWorker.register("https://pygame-web.github.io/cdn/0.9.3/pygbag0.9.3.js")
-        else
-            console.warn("Service workers not supported")
-*/
-    </script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple World — Representação do Mundo</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --dim: #8b949e;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  header {
+    width: 100%;
+    max-width: 1100px;
+    padding: 18px 16px 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  h1 { font-size: 19px; margin: 0; font-weight: 600; }
+  header span { color: var(--dim); font-size: 13px; }
+  header a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  header a:hover { text-decoration: underline; }
+  #stage { position: relative; width: min(100%, 1100px); padding: 0 16px; }
+  canvas {
+    width: 100%;
+    display: block;
+    background: #1c2128;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13, 17, 23, 0.88);
+    border-radius: 10px;
+    text-align: center;
+    padding: 24px;
+  }
+  #overlay.hidden { display: none; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 26px 30px;
+    max-width: 560px;
+  }
+  .card h2 { margin: 0 0 6px; font-size: 21px; }
+  .card p { color: var(--dim); margin: 6px 0; font-size: 14px; line-height: 1.55; }
+  .card .keys { margin-top: 14px; font-size: 13px; color: var(--dim); }
+  .card kbd {
+    background: #21262d;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+  }
+  button {
+    margin-top: 18px;
+    background: var(--accent);
+    color: #06121f;
+    border: 0;
+    border-radius: 7px;
+    padding: 10px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  #hud {
+    width: min(100%, 1100px);
+    padding: 10px 16px 6px;
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--dim);
+  }
+  #hud b { color: var(--text); font-weight: 600; }
+  #status {
+    width: min(100%, 1100px);
+    font-size: 13px;
+    color: var(--dim);
+    padding: 0 16px 8px;
+  }
+  #bar {
+    width: min(100%, 1100px);
+    padding: 0 16px 26px;
+  }
+  #bar-track {
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #bar-fill { height: 100%; background: var(--accent); width: 0; transition: width .12s linear; }
+</style>
 </head>
-
 <body>
 
-    <div id="transfer" align=center>
-<!--        <div class="spinner" id='spinner'></div> -->
-        <div class="emscripten" id="status">Downloading...</div>
-        <div class="emscripten">
-            <progress value="0" max="100" id="progress"></progress>
-        </div>
-    </div>
+<header>
+  <h1>Simple World</h1>
+  <span>Representação do mundo — grade de áreas, anel de carregamento e NPCs por perseguição direta</span>
+  <a href="https://github.com/ShinigameBR/python-simple-world-iaj">código</a>
+</header>
 
+<div id="status">Carregando Python (Pyodide)…</div>
 
+<div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="overlay"><div class="card"><h2>Carregando…</h2><p>Preparando o ambiente Python.</p></div></div>
+</div>
 
-    <canvas class="emscripten" id="canvas"
-width="1px"
-height="1px"
-    oncontextmenu="event.preventDefault()" tabindex=1>
-    </canvas>
+<div id="bar"><div id="bar-track"><div id="bar-fill"></div></div></div>
 
-    <canvas class="emscripten" id="canvas3d"
-width="1280px"
-height="720px"
-    oncontextmenu="event.preventDefault()" tabindex=1 hidden>
-    </canvas>
+<div id="hud">
+  <span>Tempo <b id="h-time">—</b></span>
+  <span>Vida <b id="h-health">—</b></span>
+  <span>Inimigos <b id="h-npcs">—</b></span>
+  <span>Abates <b id="h-kills">—</b></span>
+  <span>Curas <b id="h-heal">—</b></span>
+  <span>TNT <b id="h-ammo">—</b></span>
+  <span>Áreas ativas <b id="h-areas">—</b></span>
+</div>
 
-    <div id="infobox">Loading, please wait ...</div>
+<script type="module">
+const STATUS = document.getElementById("status");
+const OV = document.getElementById("overlay");
+const canvas = document.getElementById("game");
 
-    <div id=html></div>
+let pyodide = null;
+let ready = false;
+let running = false;
+let last = 0;
 
-    <div id=crt  class=bottomright >
+const keys = new Set();
+const MOVE = {
+  ArrowUp: [0, -1], KeyW: [0, -1],
+  ArrowDown: [0, 1], KeyS: [0, 1],
+  ArrowLeft: [-1, 0], KeyA: [-1, 0],
+  ArrowRight: [1, 0], KeyD: [1, 0],
+};
 
-        <div id="system" hidden>
-            <div class="button-container">
-                <button id="aiostop" disabled>AIO ⏏︎</button>
-                <button id="aiopaused_true" disabled>AIO ■</button>
-                <button id="aiopaused_false" disabled>AIO ▶</button>
-                <button id="pygame_mixer_music_pause" disabled>Music ■</button>
-            </div>
+// ---------------------------------------------------------------- Python
+// Roda dentro do Pyodide. Recebe input, avanca a simulacao, desenha no
+// canvas e devolve o estado como JSON (uma unica travessia por quadro).
+const PY = `
+import sys, json
+sys.path.insert(0, "/app")
+from game_web import GameWeb
+import js
 
-            <div class="button-container">
-                <div id=load_min>min</div>
-                <div id=load_avg>avg</div>
-                <div id=load_max>max</div>
-              <button id="load_rst" disabled>RESET</button>
-            </div>
+game = GameWeb()
 
-            <div id="level">(battery level unknown)</div>
-            <div id="stateBattery">(charging state unknown)</div>
+def render(snap):
+    frame = js.document.getElementById("game")
+    ctx = frame.getContext("2d")
+    W, H = frame.width, frame.height
+    cx, cy, _ww, _wh = snap["camera"]
+    zoom = snap["zoom"]
+    cols, rows, size = snap["grid"]
+    world_w, world_h = snap["worldSize"]
+    active = set(tuple(c) for c in snap["activeCells"])
 
-        </div>
+    def sx(x): return (x - cx) * zoom
+    def sy(y): return (y - cy) * zoom
 
-        <div id=box class="emscripten_border" hidden=true>
+    ctx.clearRect(0, 0, W, H)
+    ctx.fillStyle = "#1c2128"
+    ctx.fillRect(0, 0, W, H)
 
-            <div id="info" class="trinfo"></div>
+    for r in range(rows):
+        for c in range(cols):
+            on = (c, r) in active
+            ctx.fillStyle = "#1b5e38" if on else "#161b22"
+            ctx.fillRect(sx(c * size), sy(r * size), size * zoom, size * zoom)
+            ctx.strokeStyle = "#30363d"
+            ctx.lineWidth = 2
+            ctx.strokeRect(sx(c * size), sy(r * size), size * zoom, size * zoom)
 
-            <iframe id="iframe" class="framed" name="iframe"
-width="470px" height="90%"
-allowtransparency="true"
-style="z-index: 10;"
-style="background: #FFFFFF;"
-frameborder="1"
-                allowfullscreen="true"
-                webkitallowfullscreen="true"
-                msallowfullscreen="true"
-                mozallowfullscreen="true"
-                sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
-                allow="autoplay; fullscreen *; geolocation; microphone; camera; midi; monetization; xr-spatial-tracking; gamepad; gyroscope; accelerometer; xr; cross-origin-isolated"
-                src="https://pygame-web.github.io/cdn/0.9.3/empty.html"
-                scrolling="yes">
-            </iframe>
-        </div>
+    for ex, ey, er, t in snap["effects"]:
+        a = 1.0 - t
+        ctx.fillStyle = "rgba(255,170,0," + str(0.30 * a) + ")"
+        ctx.beginPath()
+        ctx.arc(sx(ex), sy(ey), er * zoom * a, 0, 6.2832)
+        ctx.fill()
+        ctx.strokeStyle = "rgba(255,200,60," + str(0.90 * a) + ")"
+        ctx.lineWidth = 3
+        ctx.stroke()
 
-    </div>
+    for ix, iy, kind in snap["items"]:
+        x, y = sx(ix), sy(iy)
+        ctx.fillStyle = "#3fb950" if kind == "health" else "#d29922"
+        ctx.fillRect(x - 8, y - 8, 16, 16)
+        ctx.strokeStyle = "#0d1117"
+        ctx.lineWidth = 2
+        ctx.strokeRect(x - 8, y - 8, 16, 16)
 
+    for nx, ny, r in snap["npcs"]:
+        ctx.fillStyle = "#f85149"
+        ctx.beginPath()
+        ctx.arc(sx(nx), sy(ny), r * zoom, 0, 6.2832)
+        ctx.fill()
 
-    <div id="dlg" hidden>
-        <input type="file" id="dlg_multifile" multiple accept="image/*">
-        <label for="dlg_multifile">Select files</label>
-    </div>
+    px, py, pr = snap["player"]
+    ctx.fillStyle = "#58a6ff"
+    ctx.beginPath()
+    ctx.arc(sx(px), sy(py), pr * zoom, 0, 6.2832)
+    ctx.fill()
+    ctx.strokeStyle = "#e6edf3"
+    ctx.lineWidth = 3
+    ctx.stroke()
 
-    <div id="pyconsole">
-        <div id="terminal" tabIndex=1 align="left"></div>
-    </div>
+    if snap["state"] == "PAUSED":
+        ctx.fillStyle = "rgba(13,17,23,0.72)"
+        ctx.fillRect(0, 0, W, H)
+        ctx.fillStyle = "#e6edf3"
+        ctx.font = "bold 44px Segoe UI, sans-serif"
+        ctx.fillText("PAUSADO", W / 2 - 105, H / 2 + 15)
+        ctx.font = "16px Segoe UI, sans-serif"
+        ctx.fillText("pressione P para continuar", W / 2 - 110, H / 2 + 50)
 
-    <script type="application/javascript">
+def frame(dt, dx, dy):
+    game.set_input(dx, dy)
+    game.step(dt)
+    snap = game.snapshot()
+    render(snap)
+    return json.dumps(snap)
 
-    globalThis.__canvas_resized = (self, ecw, ech) => {
-        console.warn("TODO: panda3d canvas monitor", self, ecw, ech)
+def control(action):
+    if action == "pause":
+        game.toggle_pause()
+    elif action == "restart":
+        game.restart()
+    elif action == "start":
+        game.start()
+    return json.dumps(game.snapshot())
+`;
+
+// ---------------------------------------------------------------- boot
+function setStatus(t) { STATUS.textContent = t; }
+
+function showOverlay(html) {
+  OV.innerHTML = '<div class="card">' + html + '</div>';
+  OV.classList.remove("hidden");
+}
+function hideOverlay() { OV.classList.add("hidden"); }
+
+const CDN = "https://cdn.jsdelivr.net/gh/ShinigameBR/python-simple-world-iaj@main/";
+
+async function fetchText(remote) {
+  for (const base of ["", CDN]) {
+    try {
+      const res = await fetch(base + remote);
+      if (res.ok) return await res.text();
+    } catch (err) {
+      // tenta a proxima origem
     }
+  }
+  throw new Error("não consegui carregar " + remote);
+}
 
-    async function custom_onload(debug_hidden) {
-        // this is called before anything python is loaded
-        // make your js customization here
-        console.log(__FILE__, "custom_onload")
+async function boot() {
+  setStatus("Baixando Pyodide (CPython 3.12 em WebAssembly)…");
+  const { loadPyodide } = await import(
+    "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.mjs"
+  );
+  pyodide = await loadPyodide({
+    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/",
+  });
 
-        pyconsole.hidden = debug_hidden
-        system.hidden = debug_hidden
-        transfer.hidden = debug_hidden
-        info.hidden = debug_hidden
-        box.hidden =  debug_hidden
+  setStatus("Carregando o modelo do jogo…");
+  pyodide.FS.mkdirTree("/app/game");
+  const files = [
+    ["config.json", "/app/config.json"],
+    ["game/__init__.py", "/app/game/__init__.py"],
+    ["game/entities.py", "/app/game/entities.py"],
+    ["game/world.py", "/app/game/world.py"],
+    ["game/camera.py", "/app/game/camera.py"],
+    ["web/game_web.py", "/app/game_web.py"],
+  ];
+  for (const [remote, local] of files) {
+    pyodide.FS.writeFile(local, await fetchText(remote));
+  }
 
-        show_infobox()
-    }
+  setStatus("Montando o jogo…");
+  await pyodide.runPythonAsync(PY);
+  ready = true;
+  setStatus("Pronto — o botão começa a partida.");
+  showOverlay(
+    "<h2>Simple World</h2>" +
+    "<p>Sobreviva até o tempo acabar. Os inimigos vermelhos perseguem em linha " +
+    "reta e ferem por contato. Só as áreas próximas do jogador são simuladas; " +
+    "as distantes ficam congeladas.</p>" +
+    "<p>Verde = primeiros socorros. Amarelo = TNT (dano em área).</p>" +
+    "<p class='keys'><kbd>WASD</kbd>/<kbd>setas</kbd> mover &nbsp;·&nbsp; " +
+    "<kbd>P</kbd> pausar &nbsp;·&nbsp; <kbd>R</kbd> reiniciar</p>" +
+    "<button id='play'>Jogar</button>"
+  );
+  document.getElementById("play").addEventListener("click", start);
+}
 
-    function custom_prerun(){
-        // no python main and no (MEMFS + VFS) yet.
-        console.log(__FILE__, "custom_prerun")
+function callControl(action) {
+  return JSON.parse(pyodide.globals.get("control")(action));
+}
 
-    }
+function start() {
+  callControl("restart");
+  hideOverlay();
+  running = true;
+  last = performance.now();
+  requestAnimationFrame(loop);
+}
 
-    function custom_postrun(){
-        // python main and no VFS filesystem yet.
-        console.log(__FILE__, "custom_postrun")
+function readHud(s) {
+  document.getElementById("h-time").textContent = s.timeLeft + "s";
+  document.getElementById("h-health").textContent = s.health;
+  document.getElementById("h-npcs").textContent = s.remainingNpcs;
+  document.getElementById("h-kills").textContent = s.kills;
+  document.getElementById("h-heal").textContent = s.healthPicked;
+  document.getElementById("h-ammo").textContent = s.ammoPicked;
+  document.getElementById("h-areas").textContent = s.activeCells.length;
+  const total = s.grid[0] * s.grid[1];
+  document.getElementById("bar-fill").style.width =
+    (100 * s.activeCells.length / total) + "%";
+}
 
-    }
+function endScreen(s) {
+  running = false;
+  const won = s.state === "WON";
+  showOverlay(
+    "<h2>" + (won ? "Você sobreviveu!" : "Você morreu") + "</h2>" +
+    "<p>Tempo sobrevivido: " + s.timeLeft + "s</p>" +
+    "<p>Inimigos abatidos: <b>" + s.kills + "</b> · curas: <b>" +
+    s.healthPicked + "</b> · TNT: <b>" + s.ammoPicked + "</b></p>" +
+    "<button id='again'>Jogar de novo</button>"
+  );
+  document.getElementById("again").addEventListener("click", start);
+}
 
-    function debug() {
-        // allow to gain access to dev tools from js console
-        // but only on desktop. difficult to reach when in iframe
-        python.config.debug = true
-        custom_onload(false)
-        Module.PyRun_SimpleString("shell.uptime()")
-        window_resize()
-    }
+function loop(now) {
+  if (!running) return;
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
 
-    function info_inline(data){
-        document.getElementById("info").innerHTML = data
-    }
+  if (keys.has("KeyP")) { keys.delete("KeyP"); callControl("pause"); }
+  if (keys.has("KeyR")) { keys.delete("KeyR"); callControl("restart"); }
 
-    function info_online(url) {
-        // display info about current APK
-        fetch( url /*, options */)
-            .then((response) => response.text())
-            .then((html) => {
-                info_inline(html);
-        })
-        .catch((error) => {
-            console.warn(error);
-        });
-    }
+  let dx = 0, dy = 0;
+  for (const code of keys) {
+    const m = MOVE[code];
+    if (m) { dx += m[0]; dy += m[1]; }
+  }
 
-    function frame_online(url) {
-        window.frames["iframe"].location = url;
-    }
+  const s = JSON.parse(pyodide.globals.get("frame")(dt, dx, dy));
+  readHud(s);
+  if (s.state === "WON" || s.state === "LOST") { endScreen(s); return; }
+  requestAnimationFrame(loop);
+}
 
-    </script>
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Enter" && ready && !running) { start(); return; }
+  if (MOVE[e.code] || e.code === "KeyP" || e.code === "KeyR") {
+    e.preventDefault();
+    keys.add(e.code);
+  }
+});
+window.addEventListener("keyup", (e) => keys.delete(e.code));
+window.addEventListener("blur", () => keys.clear());
 
+boot().catch((err) => {
+  setStatus("Erro: " + err);
+  showOverlay("<h2>Não foi possível carregar</h2><p>" + err + "</p>");
+});
+</script>
 </body>
 </html>
