@@ -13,6 +13,7 @@ Controles:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import os
@@ -183,9 +184,9 @@ class Game:
         sys.exit(0)
 
     # ------------------------------------------------------------------
-    # Loop principal
+    # Loop principal (assíncrono para o pygbag web; idêntico no desktop)
     # ------------------------------------------------------------------
-    def run(self):
+    async def run(self):
         while True:
             dt = min(self.clock.tick(120) / 1000.0, 0.05)
             self.handle_events()
@@ -195,6 +196,7 @@ class Game:
 
             self.draw()
             pygame.display.flip()
+            await asyncio.sleep(0)
 
     def _step(self, dt):
         w = self.world
@@ -449,10 +451,10 @@ def load_config(path: str | None = None) -> dict:
         return json.load(f)
 
 
-def main():
+async def main():
     config = load_config(sys.argv[1] if len(sys.argv) > 1 else None)
-    Game(config).run()
+    await Game(config).run()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
