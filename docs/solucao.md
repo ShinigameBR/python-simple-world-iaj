@@ -1,208 +1,309 @@
-# Activity: Representation of a Simple Game World
+# Atividade: Representação do Mundo de um Jogo Simples
 
-**Course:** Artificial Intelligence for Games I — Representation of the World | **Professor:** Charles Madeira
-**Theme:** Implementation of a game level with 9 areas on a regular grid, collectible items, NPCs controlled by simple automation and a viewport independent of the grid.
+**Disciplina:** Inteligência Artificial para Jogos I — Representação do Mundo
+**Docente:** Charles Madeira
+
+O que foi implementado: um nível com 9 áreas em grade, itens coletáveis, inimigos
+(NPCs) controlados por uma automação simples e uma janela de visualização que não
+depende da grade.
 
 ---
 
-## 1. Testable Solution Link
+## 1. Como executar
 
-The chosen publication option is to keep the project **local** (no automatic hosting). Therefore, below are the two ways to run and evaluate the solution.
-
-### 1.1. Running locally (immediate)
+O jogo roda localmente com Python 3.10 ou superior:
 
 ```bash
-pip install -r requirements.txt     # installs pygame
-python main.py                      # starts the game
+pip install -r requirements.txt
+python main.py
 ```
 
-Tests (model without graphics):
+Os testes do modelo (sem gráficos) também rodam localmente:
 
 ```bash
-python -m game.tests                # model unit tests
-python -m game.simulation 20        # balance analysis (20 matches per scenario)
+python -m game.tests                # testes unitários do modelo
+python -m game.simulation 20        # análise de balanceamento (20 partidas por cenário)
 ```
 
-### 1.2. Link placeholder for online testing
+### Versão no navegador
 
-To publish the game to be playable in the browser (nice to present in class), the recommended path is **GitHub Pages + pygbag** (a code that packages the pygame app as WebAssembly). After creating a repository:
-
-```bash
-pip install pygbag
-pygbag main.py                      # generates the /build folder
-gh repo create <username>/simple-world-iaj --public --source=. --push
-```
-
-Then enable **Pages** on the repository (branch `main`, folder `/build`) — the game will be available at the link:
+Também deixei o jogo publicado em WebAssembly, para testar direto no navegador:
 
 ```
 https://ShinigameBR.github.io/python-simple-world-iaj/
 ```
 
-<br/>
+O empacotamento é feito com o [pygbag](https://pypi.org/project/pygbag/), que
+converte a aplicação pygame em WebAssembly. Para regerar a versão web:
 
-## 2. Statement Summary
+```bash
+pip install pygbag
+pygbag --build --ume_block 0 --title "Simple World" --app_name simple-world .
+```
 
-Implement a game level in which the scenario is formed by **9 areas arranged in a grid** containing **collectible items** and **enemies (NPCs)**. The player must be able to control the displacement of their character, and NPCs must be controlled by a simple automation technique (e.g., pursue the player in a straight line). The player's **viewing window (viewport) must be independent of the grid**, with only nearby areas remaining active and the NPCs contained in them being updated.
-
-The level's rules (slide 66–69):
-
-- An area adjacent to the current one **only becomes active** when the character reaches "close" to its border;
-- There will be **at most 4 active areas**;
-- **Only NPCs from active areas are updated** — they move toward the player and, while overlapping, damage the player's health;
-- A player can collect: **first aid (health)** — restores health — and **ammunition (TNT)** — deals damage to surrounding enemies;
-- Any character (NPC or player) with non-positive health **dies**;
-- Level objective: **survive for a certain time**;
-- Initial state configurable (file/JSON or random) and balance testing in different scenarios (dozens/hundreds/thousands of enemies, small/medium/large areas, activation distance, damage, time…).
+O resultado fica em `build/web` e é publicado na branch `gh-pages` do repositório.
+O `main.py` roda o loop do jogo com `asyncio.run`, que é o que o pygbag espera:
+sem isso o carregamento da página não termina.
 
 <br/>
 
-## 3. Design Choices
+## 2. O que a atividade pede
 
-### 3.1. World representation: regular mesh (grid) of areas
+O cenário é formado por 9 áreas em grade, com itens coletáveis e inimigos. O
+jogador controla o deslocamento do personagem e os NPCs usam uma técnica simples
+de automação (no caso, perseguir o jogador em linha reta). A janela de
+visualização não pode depender da grade: só as áreas próximas ficam ativas e
+somente os NPCs dessas áreas são atualizados.
 
-The world was modeled as a **regular grid of Areas** (`game/world.py`), as recommended in the lesson for the "positioning of a character / nearby region" scale. Each `Area` (cell) defines an axis-aligned rectangle (limits, center) and **concentrates its own NPCs and items**. This is the key abstraction so that, at each iteration, it is only necessary to look at *which* cells are active and update their contents, instead of traversing all world entities.
+As regras do enunciado:
 
-This structure can also be seen as a **navigation graph**: each area is a node, and areas sharing a border are connected.
-
-### 3.2. Position fixed in the cell center (cell-based abstraction)
-
-Entities use **absolute world coordinates** (`x, y`), but each entity belongs to exactly **one area**, which is obtained by the Euclidean division of its coordinates by the area size (`World.cell_of`). This is the simplest form of "positioning within the shape": the cell (area) is calculated from the position, and collision tests are cheap. Items and NPCs belong to the cell's list (`Area.npcs`, `Area.items`), so buckets work as **spatial hash**.
-
-Entity buckets are **dynamic**: when an NPC crosses a cell border while chasing the player, `World._migrate_npcs` re-registers it in the destination area's list (spatial-hash update). Without this, an enemy that physically entered an active area would remain registered in the old area — and would "disappear" whenever that old area was deactivated, even though it was standing inside the loading ring.
-
-### 3.3. Active areas: loading ring (limited perception scope)
-
-The dynamic reconfiguration of active areas lives in `World.update_active_areas`:
-
-1. The player's cell is **always active**;
-2. Only the cells of the **8-neighborhood** (adjacent, physically neighboring areas) are candidates — they form the "loading ring" around the player;
-3. Each candidate is evaluated by `distance_to_area` — the distance from the player to the **border/limits** of the area (0 if inside). Areas whose distance is `<= activation_distance` qualify;
-4. Candidates are sorted by distance and fill the remaining slots up to `max_active_areas` (default **4**).
-
-With the default activation distance (`1.6 × area_size`), the ring around the player is **always full**: the current area + up to 3 nearest adjacent areas are active even when the player is at the **center** of an area. This prevents enemies from "vanishing" when the player moves to the middle of an area or crosses into another one — the areas around the player are continuously loaded, while far areas are frozen (their NPCs stop being simulated). With a **short** activation distance (e.g., 50–100px), the strict rule of the activity emerges: a neighboring area *only* activates when the character approaches its border.
-
-This implements the concept of **hierarchical abstraction / selective update** and scales the simulation to worlds with dozens, hundreds or thousands of NPCs: only up to 4 areas have their NPCs updated per iteration.
-
-### 3.4. Viewport independent of the mesh
-
-`Viewport` (`game/camera.py`) is a rectangular window defined freely on the world (`x, y, width, height`), completely **dissociated from grid cells**: it can straddle the boundaries of several areas at once and does not depend on cell coordinates. Only entities inside the visible rectangle are drawn (culling). The camera follows the player smoothly (lerp) and is clamped to the world bounds.
-
-The game opens **maximized in windowed mode** (fills the work area, excluding the taskbar). The camera also has a **zoom factor** (`viewport_zoom`, default 1.75): world coordinates are magnified on screen, so the viewport shows a **closer, smaller region** of the world (~1.5 areas wide) while entities/items are drawn proportionally smaller (radii in `config.json` and scaled icons). Zooming is purely visual — positions, collision and the area discretization keep working in world coordinates.
-
-The **perception scope** (areas active for the simulation) and the **visual window** are two independent concepts — as highlighted in the lesson: *position absolute for the AI vs. relative position to the viewport for visualization*.
-
-### 3.5. NPC AI: straight-line pursuit
-
-`NPC.chase(target, dt)` computes the direction vector to the player, normalizes it and advances at constant speed. This is the simple automation requested ("pursue in a straight line"). **Damage while overlapping**: `contact_damage_to` checks overlap (`distance < radii sum`) and applies damage per second (`contact_damage * dt`). NPCs with `health <= 0` are removed in `_cleanup`.
-
-### 3.6. Items and effects
-
-- **First aid:** on collision with the player, `Player.heal` restores the configured amount (bounded by max health).
-- **Ammunition (TNT):** rendered as a TNT crate with fuse (`_draw_tnt_icon`); on collision, applies **area damage** (`ammo_radius` / `ammo_damage`) to all NPCs within the radius (regardless of active area — because proximity is, physically, guaranteed).
-- **Explosion feedback (area damage):** the model emits an event per hit (`World.explosions`); the renderer (`Effects`) draws a **low-opacity filled flash** that expands up to the damage radius plus a sharp expanding outline ring — making the area of effect visible to the player without blocking the scene.
-
-### 3.7. Discrete-time simulation
-
-The simulation advances with a **fixed dt** (`1/120` cap in the game loop, `1/60` in the headless mode), characterizing a **discrete simulation** with automatically parallel (pseudo-parallel) entities — the lesson's first model. The balance test uses the same `World.update` so that the results reflect exactly the delivered mechanic.
-
-### 3.8. Configuration and random generation
-
-The level is generated **randomly** from `config.json` (JSON is a serialization of the initial state, permitted by the activity): sizes, NPC ranges per area, speed, damage, activation distance, survival time, seed. The **seed** guarantees reproducibility of the experiments.
-
-### 3.9. Headless simulation for balance
-
-`game/simulation.py` runs the world model **without pygame** under a simple, deterministic player policy (greedy: seek first aid when hurt; otherwise seek ammunition). It evaluates 12 scenarios × N seeds and produces the balance report. This satisfies the item *"Test the balance in different scenarios"* with a reproducible experiment instead of manual play.
+- Uma área vizinha só fica ativa quando o personagem se aproxima da borda;
+- No máximo 4 áreas ativas;
+- Só os NPCs das áreas ativas são atualizados — perseguem o jogador e causam dano
+  por contato;
+- O jogador coleta primeiros socorros (cura) e TNT (dano em área);
+- Qualquer personagem com vida menor ou igual a zero morre;
+- O objetivo é sobreviver por um tempo determinado;
+- O estado inicial é configurável (JSON ou aleatório) e o balanceamento pode ser
+  testado em cenários variados.
 
 <br/>
 
-## 4. Architecture
+## 3. Decisões de projeto
+
+### 3.1. O mundo como grade regular
+
+Segui a sugestão da aula e modelei o mundo como uma grade de `Area`
+(`game/world.py`). Cada área é um retângulo alinhado aos eixos, com limites e
+centro, e guarda os seus próprios NPCs e itens. A parte importante é que a
+simulação não precisa percorrer o mundo inteiro: basta saber quais células estão
+ativas e atualizar o conteúdo delas.
+
+A mesma estrutura também funciona como um grafo de navegação — cada área é um
+nó e áreas que compartilham uma borda estão conectadas.
+
+### 3.2. Posição absoluta e pertencimento à célula
+
+As entidades usam coordenadas absolutas do mundo (`x, y`), mas cada uma pertence
+a exatamente uma área, calculada por divisão euclidiana das coordenadas pelo
+tamanho da área (`World.cell_of`). É a forma mais simples de "posicionamento
+dentro da forma": a área sai da posição, e os testes de colisão ficam baratos.
+Itens e NPCs ficam na lista da célula (`Area.npcs`, `Area.items`), ou seja, a
+estrutura funciona como um *spatial hash*.
+
+Essas listas são dinâmicas. Quando um NPC atravessa a borda de uma área enquanto
+persegue o jogador, `World._migrate_npcs` o registra na lista da área de destino.
+Sem isso, um inimigo que tivesse entrado fisicamente numa área ativa continuaria
+registrado na antiga e "sumiria" sempre que a área antiga fosse desativada, mesmo
+estando dentro do anel carregado.
+
+### 3.3. Áreas ativas: anel de carregamento
+
+A reconfiguração dinâmica está em `World.update_active_areas`:
+
+1. A área do jogador está sempre ativa;
+2. Só entram como candidatas as células da vizinhança de 8 (as áreas vizinhas),
+   que formam o anel de carregamento ao redor do jogador;
+3. Cada candidata é avaliada por `distance_to_area`, a distância do jogador até a
+   borda da área (zero quando ele está dentro). QualIFY-se as que estão a
+   `activation_distance` ou menos;
+4. As candidatas são ordenadas por distância e preenchem as vagas restantes até
+   `max_active_areas` (4 por padrão).
+
+Com a distância padrão, que é `1.6 × area_size`, o anel fica sempre cheio: a área
+atual mais até 3 vizinhas mais próximas ficam ativas mesmo quando o jogador está
+no centro de uma área. Isso evita que os inimigos "desapareçam" quando o jogador
+caminha para o meio da área ou troca de área — as áreas em volta continuam
+carregadas, enquanto as distantes ficam congeladas. Com uma distância de ativação
+curta (50 a 100 px), a regra estrita da atividade aparece: a área vizinha só ativa
+quando o jogador chega perto da borda.
+
+É a ideia de abstração hierárquica com atualização seletiva, e é o que permite
+simular mundos com dezenas, centenas ou milhares de NPCs: no máximo 4 áreas têm
+seus NPCs atualizados a cada iteração.
+
+### 3.4. Viewport independente da grade
+
+`Viewport` (`game/camera.py`) é uma janela retangular posicionada livremente no
+mundo (`x, y, width, height`), totalmente desvinculada das células: ela pode
+cortar vários limites de área ao mesmo tempo e não depende das coordenadas da
+grade. Só as entidades dentro do retângulo visível são desenhadas. A câmera segue
+o jogador de forma suave (lerp) e é limitada aos limites do mundo.
+
+O jogo abre maximizado em modo janela, ocupando a área de trabalho. Também existe
+um fator de zoom (`viewport_zoom`, 1.75 por padrão): as coordenadas do mundo são
+ampliadas na tela, de modo que a janela mostra uma região menor e mais próxima do
+mundo, cerca de 1,5 áreas de largura. O zoom é só visual — posições, colisões e a
+discretização em áreas continuam funcionando em coordenadas do mundo.
+
+O escopo de percepção (áreas ativas da simulação) e a janela visual são coisas
+independentes, que é justamente a distinção da aula: posição absoluta para a IA,
+posição relativa ao viewport para a visualização.
+
+### 3.5. IA dos NPCs: perseguição em linha reta
+
+`NPC.chase(target, dt)` calcula o vetor direção até o jogador, normaliza e
+avança com velocidade constante. É a automação simples pedida. O dano por
+contato fica em `contact_damage_to`, que verifica a sobreposição
+(distância menor que a soma dos raios) e aplica dano por segundo
+(`contact_damage * dt`). NPCs com vida menor ou igual a zero são removidos em
+`_cleanup`.
+
+### 3.6. Itens e efeitos
+
+- **Primeiros socorros:** na colisão com o jogador, `Player.heal` restaura a
+  quantidade configurada, respeitando a vida máxima.
+- **TNT:** desenhada como uma caixa com pavio (`_draw_tnt_icon`). Na colisão,
+  aplica dano em área (`ammo_radius` / `ammo_damage`) a todos os NPCs dentro do
+  raio, independentemente de a área estar ativa, já que a proximidade é física.
+- **Feedback da explosão:** o modelo emite um evento por acerto
+  (`World.explosions`) e o renderizador (`Effects`) desenha um preenchimento
+  translúcido que cresce até o raio de dano, mais um anel de contorno fino. Isso
+  deixa visível a área de efeito sem cobrir a cena.
+
+### 3.7. Simulação em tempo discreto
+
+A simulação avança com `dt` fixo, limitado a `1/120` no loop do jogo e `1/60` no
+modo sem gráficos. É uma simulação discreta com entidades paralelas de forma
+automática, que é o primeiro modelo da aula. O teste de balanceamento usa o mesmo
+`World.update`, então os resultados refletem exatamente a mecânica entregue.
+
+### 3.8. Configuração e geração aleatória
+
+O nível é gerado aleatoriamente a partir de `config.json`, que é a serialização
+do estado inicial permitida pela atividade: tamanhos, quantidade de NPCs por
+área, velocidade, dano, distância de ativação, tempo de sobrevivência e a seed. A
+seed garante que os experimentos sejam reproduzíveis.
+
+### 3.9. Simulação sem gráficos para balanceamento
+
+`game/simulation.py` roda o modelo sem pygame, sob uma política simples e
+determinística de jogador (gulosa: procurar cura quando estiver ferido, senão
+procurar TNT). Ele avalia 12 cenários com N seeds e gera o relatório de
+balanceamento. É o item "testar o balanceamento em cenários diferentes" feito como
+experimento reproduzível, em vez de jogo manual.
+
+<br/>
+
+## 4. Organização do código
 
 ```
-main.py                 — pygame entry point: loop, input, states, HUD, rendering
-config.json             — initial level state / parameters (JSON)
+main.py                 — entrada do pygame: loop, input, estados, HUD, render
+config.json             — estado inicial do nível / parâmetros
 game/
-  entities.py           — Player, NPC, Item (movement, health, effects)
-  world.py              — Area and World (grid, active areas, selective update)
-  camera.py             — Viewport (independent visualization window)
-  simulation.py         — headless balance analysis (python -m game.simulation)
-  tests.py              — model tests (python -m game.tests)
-  smoke_test.py         — screenshot/render smoke test (no window)
+  entities.py           — Player, NPC, Item (movimento, vida, efeitos)
+  world.py              — Area e World (grade, áreas ativas, atualização seletiva)
+  camera.py             — Viewport (janela visual independente)
+  simulation.py         — análise de balanceamento (python -m game.simulation)
+  tests.py              — testes do modelo (python -m game.tests)
+  smoke_test.py         — teste de renderização/screenshot (sem janela)
 docs/
-  solucao.md            — this document
-  balance_report.md     — generated balance report
-  screenshots/          — captured screenshots (menu, gameplay, pause)
+  solucao.md            — este documento
+  balance_report.md     — relatório de balanceamento gerado
+  screenshots/          — screenshots (menu, jogo, pausa)
 ```
 
-### Controls
+### Controles
 
-| Key | Function |
+| Tecla | Função |
 |---|---|
-| WASD / Arrows | Move |
-| P | Pause |
-| R | Restart level |
-| ENTER | Start (menu) |
-| ESC / Q | Menu / Exit |
+| WASD / Setas | Mover |
+| P | Pausar |
+| R | Reiniciar o nível |
+| ENTER | Começar (no menu) |
+| ESC / Q | Menu / Sair |
 
 <br/>
 
-## 5. Mapping to the Discipline Concepts
+## 5. Relação com os conceitos da disciplina
 
-| Lesson concept | Implementation |
+| Conceito da aula | Onde aparece |
 |---|---|
-| **Regular grids as world abstraction** | Grid of 9 `Area`s dividing the world into same-sized cells |
-| **Positioning within the cell** | `cell_of()` computes the area from absolute coordinates |
-| **Entity bucket per cell** | `Area.npcs` / `Area.items` |
-| **Position absolute × relative (viewport)** | `Viewport` converts world → screen; AI uses absolute coordinates |
-| **Perception scope (limit nearby lookups)** | `update_active_areas()` — loading ring, `<= max_active(4)` |
-| **Selective update / hierarchy** | Only NPCs from active areas run `chase`/`contact_damage` |
-| **Discrete simulation** | fixed `dt` loop |
-| **Automated NPC (straight-line pursuit)** | `NPC.chase` |
-| **Grid as graph** | neighboring areas are implicitly connected |
-| **Trees/quadtrees (extension)** | possible space-partitioning evolution (Section 7) |
+| Grade regular como abstração do mundo | Grade de 9 `Area`s dividindo o mundo em células do mesmo tamanho |
+| Posicionamento dentro da célula | `cell_of()` calcula a área a partir das coordenadas absolutas |
+| Lista de entidades por célula | `Area.npcs` / `Area.items` |
+| Posição absoluta × relativa (viewport) | `Viewport` converte mundo → tela; a IA usa coordenadas absolutas |
+| Escopo de percepção (limitar consultas) | `update_active_areas()`, anel de carregamento, no máximo 4 áreas |
+| Atualização seletiva / hierarquia | Só os NPCs de áreas ativas executam `chase` e dano por contato |
+| Simulação discreta | Loop com `dt` fixo |
+| Automação de NPC (perseguição direta) | `NPC.chase` |
+| Grade como grafo | Áreas vizinhas ficam conectadas implicitamente |
+| Árvores/quadtrees (extensão) | Evolução natural do particionamento (seção 7) |
 
 <br/>
 
-## 6. Balance Results
+## 6. Resultados de balanceamento
 
-Generated by `python -m game.simulation 20` (see `docs/balance_report.md`). 20 matches per scenario; greedy player policy; survival time 90s unless noted.
+Gerados por `python -m game.simulation 20`, disponíveis em `docs/balance_report.md`.
+São 20 partidas por cenário, com a política gulosa, e 90 s de sobrevivência salvo
+quando indicado.
 
-| Scenario | Enemies | Survival | Avg HP | Kills | Death (s) | Avg active areas |
+| Cenário | Inimigos | Sobrevivência | Vida média | Abates | Morte (s) | Áreas ativas (média) |
 |---|---|---|---|---|---|---|
-| 1. Baseline (3x3, 600px) | 600px x9 (4–9/area) | 50% | 45.8 | 52 | 75.7 | 4.0 |
-| 2. Dozens of enemies | 600px x9 (3–5/area) | 70% | 66.3 | 33 | 80.3 | 4.0 |
-| 3. Hundreds of enemies | 600px x9 (40–60/area) | 0% | 0.0 | 46 | 3.4 | 4.0 |
-| 4. Thousands of enemies | 600px x9 (300–500/area) | 0% | 0.0 | 28 | 0.5 | 4.0 |
-| 5. Small areas (300px) | 300px x9 (4–9/area) | 100% | 98.5 | 59 | – | 4.0 |
-| 6. Large areas (900px) | 900px x9 (4–9/area) | 30% | 21.0 | 35 | 57.8 | 3.95 |
-| 7. Short activation (100px) | 600px x9 (4–9/area) | 100% | 95.4 | 53 | – | 1.23 |
-| 8. Long activation (500px) | 600px x9 (4–9/area) | 65% | 60.9 | 52 | 72.9 | 3.32 |
-| 9. Fast NPC (speed 220) | 600px x9 (4–9/area) | 15% | 15.0 | 21 | 5.6 | 4.0 |
-| 10. Lethal contact (60/s) | 600px x9 (4–9/area) | 25% | 23.9 | 32 | 22.5 | 4.0 |
-| 11. Survive 30s | 600px x9 (4–9/area) | 100% | 84.8 | 52 | – | 4.0 |
-| 12. Survive 180s | 600px x9 (4–9/area) | 40% | 37.2 | 52 | 80.9 | 4.0 |
+| 1. Base (3x3, 600px) | 4–9 por área | 50% | 45.8 | 52 | 75.7 | 4.0 |
+| 2. Dezenas de inimigos | 3–5 por área | 70% | 66.3 | 33 | 80.3 | 4.0 |
+| 3. Centenas de inimigos | 40–60 por área | 0% | 0.0 | 46 | 3.4 | 4.0 |
+| 4. Milhares de inimigos | 300–500 por área | 0% | 0.0 | 28 | 0.5 | 4.0 |
+| 5. Áreas pequenas (300px) | 4–9 por área | 100% | 98.5 | 59 | — | 4.0 |
+| 6. Áreas grandes (900px) | 4–9 por área | 30% | 21.0 | 35 | 57.8 | 3.95 |
+| 7. Ativação curta (100px) | 4–9 por área | 100% | 95.4 | 53 | — | 1.23 |
+| 8. Ativação longa (500px) | 4–9 por área | 65% | 60.9 | 52 | 72.9 | 3.32 |
+| 9. NPC rápido (220) | 4–9 por área | 15% | 15.0 | 21 | 5.6 | 4.0 |
+| 10. Contato letal (60/s) | 4–9 por área | 25% | 23.9 | 32 | 22.5 | 4.0 |
+| 11. Sobreviver 30s | 4–9 por área | 100% | 84.8 | 52 | — | 4.0 |
+| 12. Sobreviver 180s | 4–9 por área | 40% | 37.2 | 52 | 80.9 | 4.0 |
 
-### Analysis
+### Leitura dos resultados
 
-- **Loading ring (default):** with the default activation distance, the 4 surrounding areas stay active most of the time (avg 4.0). Enemies never "vanish" near the player; far areas remain frozen (not simulated).
-- **Entity migration:** since NPCs are re-bucketed when they cross area borders (`_migrate_npcs`), enemies that enter an active area keep being updated and attacking — encounters near the ring are persistent instead of "disappearing".
-- **Scaling:** dozens → hundreds → thousands multiply the crowd in the loaded ring; in scenarios 3–4 the greedy policy dies before collecting enough TNT (automatic massacre). Thousands of distant enemies only "exist" but are **not simulated** until their area enters the ring — which proves the selective update's objective.
-- **Area size:** small areas (~4 active on average) increase confrontations with identical density; large areas dilute the NPCs but, since the ring covers a larger physical area (up to 3×3), more NPCs are active at once — harder (30%).
-- **Activation distance:** with a short radius the strict "near the border" rule emerges (avg 1.23 active areas, 100% survival); long activation approaches the ring mode (65%).
-- **NPC speed and contact damage** are the dominant difficulty factors (15% and 25% survival) — they are the recommended parameters to tune difficulty.
-- With a **passive player** the default map is challenging (50% survival): the greedy policy clears its ring of enemies with TNT, but NPCs that chase across the border keep coming. A human player who moves and kites has more margin.
+O anel de carregamento padrão mantém as 4 áreas do redor ativas quase o tempo
+todo (média 4.0), então os inimigos não somem perto do jogador e as áreas
+distantes ficam congeladas. Como os NPCs são remanejados quando atravessam a
+borda (`_migrate_npcs`), quem entra numa área ativa continua sendo atualizado e
+atacando, o que torna os encontros no anel persistentes em vez de intermitentes.
 
-**Tuned default:** with the human player in mind, `config.json` was left at speed 260 / NPC 150, damage 25/s, health pickups +40, TNT radius 220 and 90s of survival — a balanced base for manual play.
+Na escala, multiplicar a quantidade de inimigos multiplica a multidão dentro do
+anel carregado: nos cenários 3 e 4 a política gulosa morre antes de juntar TNT
+suficiente. Os milhares de inimigos distantes existem, mas não são simulados
+enquanto a área deles não entra no anel, que é justamente o objetivo da
+atualização seletiva.
+
+Sobre o tamanho das áreas: áreas pequenas aumentam os confrontos com a mesma
+densidade. Áreas grandes diluem os NPCs, mas como o anel cobre uma região física
+maior, mais inimigos ficam ativos ao mesmo tempo, e o cenário fica mais difícil
+(30%).
+
+A distância de ativação controla bem o comportamento: com raio curto a regra
+estrita de "perto da borda" emerge, com média de 1.23 área ativa e 100% de
+sobrevivência; com raio longo o comportamento se aproxima do anel completo (65%).
+
+Velocidade do NPC e dano por contato são os fatores que mais pesam na dificuldade
+(15% e 25% de sobrevivência). São os parâmetros que eu mexeria primeiro para
+ajustar o nível.
+
+Com o mapa padrão e um jogador passivo, a sobrevivência fica em 50%: a política
+gulosa limpa o anel com TNT, mas os NPCs que atravessam a borda continuam
+chegando. Um jogador humano que se move e usa o espaço tem mais folga.
+
+**Configuração final:** considerando o jogador humano, deixei o `config.json` com
+velocidade do jogador 260, NPC 150, dano de 25/s, cura de +40, raio de TNT 220 e
+90 s de sobrevivência. É uma base equilibrada para se jogar manualmente.
 
 <br/>
 
-## 7. Extensions / Bonus Implemented as Possible
+## 7. Extensões possíveis
 
-- **Dynamic load/release (bonus):** the active-area mechanism already *deactivates* areas far from the player, freezing their NPCs. On worlds much larger than 3×3, the areas could also have their entity lists unloaded from memory, re-instantiated only on activation (`World.update_active_areas` is the natural hook).
-- **Quadtree:** replacing the fixed grid with a Quadtree (`getObjects(x, y)` as in the lesson) is a direct evolution, keeping the entity-per-region bucket concept.
-- **Navigation graph / BFS pathfinding:** since the grid is a graph, `chase` could later use neighborhood BFS to avoid obstacles.
-- **Difficulty curve:** gradual activation distance and speeds via the same `config.json` fields.
+- **Carregamento e descarregamento dinâmico:** o mecanismo de áreas ativas já
+  desativa áreas distantes e congela os NPCs delas. Em mundos bem maiores que
+  3×3, as listas poderiam também ser descarregadas da memória e recriadas na
+  ativação, que é o gancho natural em `World.update_active_areas`.
+- **Quadtree:** trocar a grade fixa por uma Quadtree, seguindo a aula, mantendo a
+  ideia de listas de entidades por região.
+- **Busca de caminho:** como a grade é um grafo, o `chase` poderia usar BFS na
+  vizinhança para contornar obstáculos.
+- **Curva de dificuldade:** variar distância de ativação e velocidade ao longo da
+  partida usando os mesmos campos do `config.json`.
 
 ---
 
-*Fallback: the balance report, unit tests and screenshots can be regenerated with the commands in Section 1.1.*
+*O relatório de balanceamento, os testes e os screenshots podem ser regerados com
+os comandos da seção 1.*
