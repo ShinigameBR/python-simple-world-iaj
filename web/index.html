@@ -3,156 +3,401 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Simple World — Representação do Mundo</title>
+<title>Simples World - Representação do Mundo (IA p/ Jogos)</title>
 <style>
-  :root {
-    --bg: #0d1117;
-    --panel: #161b22;
-    --border: #30363d;
-    --text: #e6edf3;
-    --dim: #8b949e;
-    --accent: #58a6ff;
-  }
-  * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
+    height: 100%;
+    background: #0e0f14;
+    overflow: hidden;
   }
-  header {
-    width: 100%;
-    max-width: 1100px;
-    padding: 18px 16px 10px;
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  h1 { font-size: 19px; margin: 0; font-weight: 600; }
-  header span { color: var(--dim); font-size: 13px; }
-  header a { color: var(--accent); text-decoration: none; font-size: 13px; }
-  header a:hover { text-decoration: underline; }
-  #stage { position: relative; width: min(100%, 1100px); padding: 0 16px; }
-  canvas {
-    width: 100%;
-    display: block;
-    background: #1c2128;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-  #overlay {
-    position: absolute;
-    inset: 0 16px;
+  canvas { display: block; }
+  #boot {
+    position: fixed;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(13, 17, 23, 0.88);
-    border-radius: 10px;
+    background: #0e0f14;
+    color: #969ba5;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
     text-align: center;
     padding: 24px;
   }
-  #overlay.hidden { display: none; }
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 26px 30px;
-    max-width: 560px;
-  }
-  .card h2 { margin: 0 0 6px; font-size: 21px; }
-  .card p { color: var(--dim); margin: 6px 0; font-size: 14px; line-height: 1.55; }
-  .card .keys { margin-top: 14px; font-size: 13px; color: var(--dim); }
-  .card kbd {
-    background: #21262d;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-family: Consolas, monospace;
-    font-size: 12px;
-  }
-  button {
-    margin-top: 18px;
-    background: var(--accent);
-    color: #06121f;
-    border: 0;
-    border-radius: 7px;
-    padding: 10px 24px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  button:hover { filter: brightness(1.1); }
-  #hud {
-    width: min(100%, 1100px);
-    padding: 10px 16px 6px;
-    display: flex;
-    gap: 18px;
-    flex-wrap: wrap;
-    font-size: 13px;
-    color: var(--dim);
-  }
-  #hud b { color: var(--text); font-weight: 600; }
-  #status {
-    width: min(100%, 1100px);
-    font-size: 13px;
-    color: var(--dim);
-    padding: 0 16px 8px;
-  }
-  #bar {
-    width: min(100%, 1100px);
-    padding: 0 16px 26px;
-  }
-  #bar-track {
-    height: 6px;
-    background: #21262d;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  #bar-fill { height: 100%; background: var(--accent); width: 0; transition: width .12s linear; }
+  #boot.hidden { display: none; }
+  #boot .box { max-width: 520px; line-height: 1.6; }
+  #boot b { color: #00dcff; display: block; margin-bottom: 10px; font-size: 17px; }
+  #boot span { display: block; margin-top: 10px; color: #e63c3c; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Simple World</h1>
-  <span>Representação do mundo — grade de áreas, anel de carregamento e NPCs por perseguição direta</span>
-  <a href="https://github.com/ShinigameBR/python-simple-world-iaj">código</a>
-</header>
+<canvas id="game"></canvas>
 
-<div id="status">Carregando Python (Pyodide)…</div>
-
-<div id="stage">
-  <canvas id="game" width="1280" height="720"></canvas>
-  <div id="overlay"><div class="card"><h2>Carregando…</h2><p>Preparando o ambiente Python.</p></div></div>
-</div>
-
-<div id="bar"><div id="bar-track"><div id="bar-fill"></div></div></div>
-
-<div id="hud">
-  <span>Tempo <b id="h-time">—</b></span>
-  <span>Vida <b id="h-health">—</b></span>
-  <span>Inimigos <b id="h-npcs">—</b></span>
-  <span>Abates <b id="h-kills">—</b></span>
-  <span>Curas <b id="h-heal">—</b></span>
-  <span>TNT <b id="h-ammo">—</b></span>
-  <span>Áreas ativas <b id="h-areas">—</b></span>
+<div id="boot">
+  <div class="box">
+    <b>SIMPLES WORLD</b>
+    <div id="boot-msg">Carregando Python (Pyodide)…</div>
+    <span id="boot-err"></span>
+  </div>
 </div>
 
 <script type="module">
-const STATUS = document.getElementById("status");
-const OV = document.getElementById("overlay");
 const canvas = document.getElementById("game");
+const bootEl = document.getElementById("boot");
+const bootMsg = document.getElementById("boot-msg");
+const bootErr = document.getElementById("boot-err");
 
-let pyodide = null;
-let ready = false;
-let running = false;
-let last = 0;
+// ---------------------------------------------------------------- cores
+// mesmas constantes de main.py
+const C = {
+  bg:            [14, 15, 20],
+  areaInactive:  [26, 28, 36],
+  areaActive:    [38, 48, 66],
+  grid:          [58, 64, 80],
+  player:        [0, 220, 255],
+  npc:           [230, 60, 60],
+  health:        [60, 220, 90],
+  ammo:          [250, 210, 60],
+  text:          [235, 235, 235],
+  dim:           [150, 155, 165],
+};
 
+// pygame Font(None, N) -> altura ~= 0.75*N, entao o canvas usa 0.75*N px
+const F = { normal: 18, small: 14, big: 45, med: 24 };
+const FF = '"Segoe UI", system-ui, sans-serif';
+const TAU = 6.283185307179586;
+
+const rgb = (c) => "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")";
+const rgba = (c, a) =>
+  "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+
+function lerpColor(a, b, t) {
+  return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
+}
+
+// texto com semantica de topo-esquerdo, como o blit do pygame
+function textTop(ctx, str, x, y, size, color) {
+  ctx.font = size + "px " + FF;
+  ctx.fillStyle = typeof color === "string" ? color : rgb(color);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(str, x, y + size * 0.72);
+}
+
+function textCenterTop(ctx, str, cx, y, size, color) {
+  ctx.font = size + "px " + FF;
+  const w = ctx.measureText(str).width;
+  textTop(ctx, str, cx - w / 2, y, size, color);
+}
+
+function measure(ctx, str, size) {
+  ctx.font = size + "px " + FF;
+  return ctx.measureText(str).width;
+}
+
+// ---------------------------------------------------------------- mundo
+function drawAreas(ctx, s, sx, sy, z) {
+  for (const [col, row, left, top, size, active] of s.areas) {
+    const x = sx(left), y = sy(top);
+    const w = size * z, h = size * z;
+    ctx.fillStyle = rgb(active ? C.areaActive : C.areaInactive);
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = rgb(C.grid);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    textTop(ctx, "A" + (col + 1) + "," + (row + 1), x + 8, y + 8, F.small,
+            active ? C.ammo : C.dim);
+  }
+}
+
+function drawHealthIcon(ctx, cx, cy, r) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, TAU);
+  ctx.fillStyle = "rgb(20,70,30)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, TAU);
+  ctx.strokeStyle = rgb(C.health);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const w = Math.floor(r * 0.6);
+  const h = Math.max(2, Math.floor(r * 0.28));
+  ctx.fillStyle = rgb(C.health);
+  ctx.fillRect(cx - w, cy - Math.floor(h / 2), 2 * w, h);
+  ctx.fillRect(cx - Math.floor(h / 2), cy - w, h, 2 * w);
+}
+
+function drawTntIcon(ctx, cx, cy, c) {
+  if (c <= 0) return;
+  const x = Math.floor(cx), y = Math.floor(cy);
+  const bw = Math.floor(30 * c), bh = Math.floor(22 * c);
+  if (bw < 4) return;
+  const bx = x - Math.floor(15 * c), by = y - Math.floor(11 * c);
+
+  ctx.fillStyle = "rgb(200,74,34)";
+  ctx.fillRect(bx, by, bw, bh);
+
+  ctx.strokeStyle = "rgb(130,44,20)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+
+  ctx.fillStyle = "rgb(120,50,22)";
+  ctx.fillRect(bx + Math.floor(3 * c), by + Math.floor(8 * c),
+               bw - Math.floor(6 * c), Math.floor(6 * c));
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(0.55 * c, 0.55 * c);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = F.normal + "px " + FF;
+  ctx.fillStyle = "rgb(250,210,160)";
+  ctx.fillText("TNT", 0, 0);
+  ctx.restore();
+
+  ctx.strokeStyle = "rgb(90,60,40)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + Math.floor(11 * c), y - Math.floor(9 * c));
+  ctx.lineTo(x + Math.floor(18 * c), y - Math.floor(15 * c));
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x + Math.floor(19 * c), y - Math.floor(16 * c),
+          Math.max(2, Math.floor(3 * c)), 0, TAU);
+  ctx.fillStyle = "rgb(255,210,80)";
+  ctx.fill();
+}
+
+function drawNpcs(ctx, s, sx, sy, z) {
+  const W = canvas.width, H = canvas.height;
+  for (const [x, y, r, hp] of s.npcs) {
+    const px = sx(x), py = sy(y);
+    if (px < -60 || py < -60 || px > W + 60 || py > H + 60) continue;
+    const frac = Math.max(0, Math.min(1, hp / s.npcMaxHealth));
+    const color = lerpColor(C.npc, [240, 160, 60], frac);
+    const rr = Math.floor(r * z);
+    ctx.beginPath();
+    ctx.arc(px, py, rr, 0, TAU);
+    ctx.fillStyle = rgb(color);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(px, py, rr, 0, TAU);
+    ctx.strokeStyle = "rgb(0,0,0)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function drawPlayer(ctx, s, sx, sy, z) {
+  const [x, y, r, vx, vy] = s.player;
+  const px = sx(x), py = sy(y);
+  const rr = Math.floor(r * z);
+
+  ctx.beginPath();
+  ctx.arc(px, py, rr, 0, TAU);
+  ctx.fillStyle = rgb(C.player);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(px, py, rr, 0, TAU);
+  ctx.strokeStyle = "rgb(255,255,255)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const len = Math.hypot(vx, vy);
+  if (len > 0) {
+    ctx.strokeStyle = "rgb(255,255,255)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + (vx / len) * (r + 6) * z, py + (vy / len) * (r + 6) * z);
+    ctx.stroke();
+  }
+}
+
+function drawEffects(ctx, s, sx, sy, z) {
+  for (const [x, y, radius, prog] of s.effects) {
+    const p = Math.min(1, prog);
+    const r = (8 + (radius - 8) * p) * z;
+    ctx.beginPath();
+    ctx.arc(sx(x), sy(y), r * 0.92, 0, TAU);
+    ctx.fillStyle = rgba(C.ammo, (90 / 255) * (1 - p));
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sx(x), sy(y), r, 0, TAU);
+    ctx.strokeStyle = rgba(C.ammo, (240 / 255) * (1 - p));
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------- HUD
+function drawHud(ctx, s) {
+  const W = canvas.width;
+  const barW = 260, barH = 16, bx = 14, by = 12, row2 = by + 46;
+
+  ctx.fillStyle = "rgba(10,11,14,0.7059)";
+  ctx.fillRect(0, 0, W, row2 + 24);
+
+  textTop(ctx, "SAÚDE", bx, by, F.small, C.dim);
+
+  const frac = Math.max(0, Math.min(1, s.health / s.maxHealth));
+  ctx.fillStyle = "rgb(40,40,48)";
+  ctx.fillRect(bx, by + 18, barW, barH);
+  ctx.fillStyle = rgb(lerpColor(C.npc, C.health, frac));
+  ctx.fillRect(bx, by + 18, Math.floor(barW * frac), barH);
+  ctx.strokeStyle = "rgb(255,255,255)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx + 0.5, by + 18.5, barW - 1, barH - 1);
+
+  textTop(ctx, "TEMPO: " + Math.floor(s.timeLeft) + "s",
+          bx + barW + 30, by + 4, F.normal, C.text);
+
+  const used = "Primeiros socorros usados: " + s.healthPicked +
+               "   TNT usada: " + s.ammoPicked;
+  textTop(ctx, used, W - measure(ctx, used, F.small) - 16, by + 4, F.small, C.dim);
+
+  const info = "Áreas ativas: " + s.activeCells.length + "/" + s.totalCells +
+               "   Inimigos restantes: " + s.remainingNpcs +
+               "   Abates: " + s.kills;
+  textTop(ctx, info, bx, row2, F.small, C.dim);
+
+  drawLegend(ctx, row2);
+}
+
+function drawLegend(ctx, y) {
+  const W = canvas.width, margin = 16, gap = 26;
+  const entries = [
+    ["health", "Primeiros socorros (cura)"],
+    ["tnt", "TNT (dano em área)"],
+  ];
+  const widths = entries.map(([, t]) => measure(ctx, t, F.small));
+  const total = widths.reduce((a, w) => a + gap + w, 0);
+  let x = W - total - margin;
+  const iconCenter = y + 9;
+
+  entries.forEach(([kind, t], i) => {
+    if (kind === "health") drawHealthIcon(ctx, x + 7, iconCenter, 6);
+    else drawTntIcon(ctx, x + 7, iconCenter, 0.34);
+    textTop(ctx, t, x + gap, y, F.small, C.dim);
+    x += gap + widths[i];
+  });
+}
+
+function drawCenterText(ctx, title, subtitle, color) {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = "rgba(0,0,0,0.6667)";
+  ctx.fillRect(0, 0, W, H);
+  textCenterTop(ctx, title, W / 2, H / 2 - 40, F.big, color);
+  textCenterTop(ctx, subtitle, W / 2, H / 2 + 20, F.normal, C.dim);
+}
+
+function drawMenu(ctx, s) {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = "rgba(0,0,0,0.7843)";
+  ctx.fillRect(0, 0, W, H);
+
+  textCenterTop(ctx, "SIMPLES WORLD", W / 2, 80, F.big, C.player);
+
+  const lines = [
+    "Representação do mundo de um jogo simples",
+    "",
+    "Sobreviva por " + Math.floor(s.survivalTime) + " segundos em uma malha de " +
+      s.cols + "x" + s.rows + " áreas.",
+    "Inimigos perseguem você em linha reta. Apenas as áreas próximas",
+    "ficam ativas e só os NPCs das áreas ativas são atualizados.",
+    "",
+    "Primeiros socorros (+): recuperam a saúde",
+    "TNT: causa dano aos inimigos ao redor",
+    "",
+    "[WASD / Setas] mover   [P] pausar   [R] reiniciar   [Q] sair",
+  ];
+
+  let y = 180;
+  for (let i = 0; i < lines.length; i++) {
+    if (i === 0) { y += 10; continue; }
+    textCenterTop(ctx, lines[i], W / 2, y, F.normal,
+                  i < lines.length - 3 ? C.text : C.dim);
+    y += 34;
+  }
+
+  textCenterTop(ctx, "Pressione ENTER para começar", W / 2, H - 120, F.med, C.ammo);
+}
+
+function render(s) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const [cx, cy] = s.camera;
+  const z = s.zoom;
+  const sx = (x) => (x - cx) * z;
+  const sy = (y) => (y - cy) * z;
+
+  ctx.fillStyle = rgb(C.bg);
+  ctx.fillRect(0, 0, W, H);
+
+  drawAreas(ctx, s, sx, sy, z);
+
+  for (const [x, y, kind] of s.items) {
+    const px = sx(x), py = sy(y);
+    if (px < -40 || py < -40 || px > W + 40 || py > H + 40) continue;
+    if (kind === "health") drawHealthIcon(ctx, px, py, 9 * z);
+    else drawTntIcon(ctx, px, py, 0.45 * z);
+  }
+
+  drawNpcs(ctx, s, sx, sy, z);
+  drawPlayer(ctx, s, sx, sy, z);
+  drawEffects(ctx, s, sx, sy, z);
+
+  if (s.state === "MENU") {
+    drawMenu(ctx, s);
+  } else {
+    drawHud(ctx, s);
+    if (s.state === "PAUSED") {
+      drawCenterText(ctx, "PAUSADO",
+        "[P] continuar   [R] reiniciar   [ESC] menu", C.text);
+    } else if (s.state === "WON") {
+      drawCenterText(ctx, "VOCÊ SOBREVIVEU!",
+        "[R] jogar novamente   [ESC] menu", C.health);
+    } else if (s.state === "LOST") {
+      drawCenterText(ctx, "VOCÊ MORREU",
+        "[R] tentar de novo   [ESC] menu", C.npc);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- Python
+const PY = `
+import sys, json
+sys.path.insert(0, "/app")
+from game_web import GameWeb
+
+game = GameWeb()
+
+def frame(dt, dx, dy):
+    game.set_input(dx, dy)
+    game.step(dt)
+    return json.dumps(game.snapshot())
+
+def control(action):
+    if action == "pause":
+        game.toggle_pause()
+    elif action == "menu":
+        game.to_menu()
+    elif action in ("start", "restart"):
+        game.restart()
+    return json.dumps(game.snapshot())
+
+def set_view(w, h):
+    game.resize(w, h)
+    return json.dumps(game.snapshot())
+`;
+
+// ---------------------------------------------------------------- loop
 const keys = new Set();
 const MOVE = {
   ArrowUp: [0, -1], KeyW: [0, -1],
@@ -161,114 +406,44 @@ const MOVE = {
   ArrowRight: [1, 0], KeyD: [1, 0],
 };
 
-// ---------------------------------------------------------------- Python
-// Roda dentro do Pyodide. Recebe input, avanca a simulacao, desenha no
-// canvas e devolve o estado como JSON (uma unica travessia por quadro).
-const PY = `
-import sys, json
-sys.path.insert(0, "/app")
-from game_web import GameWeb
-import js
+let ready = false;
+let last = 0;
 
-game = GameWeb()
+const control = (a) => JSON.parse(pyodide.globals.get("control")(a));
+const frame = (dt, dx, dy) =>
+  JSON.parse(pyodide.globals.get("frame")(dt, dx, dy));
 
-def render(snap):
-    frame = js.document.getElementById("game")
-    ctx = frame.getContext("2d")
-    W, H = frame.width, frame.height
-    cx, cy, _ww, _wh = snap["camera"]
-    zoom = snap["zoom"]
-    cols, rows, size = snap["grid"]
-    world_w, world_h = snap["worldSize"]
-    active = set(tuple(c) for c in snap["activeCells"])
-
-    def sx(x): return (x - cx) * zoom
-    def sy(y): return (y - cy) * zoom
-
-    ctx.clearRect(0, 0, W, H)
-    ctx.fillStyle = "#1c2128"
-    ctx.fillRect(0, 0, W, H)
-
-    for r in range(rows):
-        for c in range(cols):
-            on = (c, r) in active
-            ctx.fillStyle = "#1b5e38" if on else "#161b22"
-            ctx.fillRect(sx(c * size), sy(r * size), size * zoom, size * zoom)
-            ctx.strokeStyle = "#30363d"
-            ctx.lineWidth = 2
-            ctx.strokeRect(sx(c * size), sy(r * size), size * zoom, size * zoom)
-
-    for ex, ey, er, t in snap["effects"]:
-        a = 1.0 - t
-        ctx.fillStyle = "rgba(255,170,0," + str(0.30 * a) + ")"
-        ctx.beginPath()
-        ctx.arc(sx(ex), sy(ey), er * zoom * a, 0, 6.2832)
-        ctx.fill()
-        ctx.strokeStyle = "rgba(255,200,60," + str(0.90 * a) + ")"
-        ctx.lineWidth = 3
-        ctx.stroke()
-
-    for ix, iy, kind in snap["items"]:
-        x, y = sx(ix), sy(iy)
-        ctx.fillStyle = "#3fb950" if kind == "health" else "#d29922"
-        ctx.fillRect(x - 8, y - 8, 16, 16)
-        ctx.strokeStyle = "#0d1117"
-        ctx.lineWidth = 2
-        ctx.strokeRect(x - 8, y - 8, 16, 16)
-
-    for nx, ny, r in snap["npcs"]:
-        ctx.fillStyle = "#f85149"
-        ctx.beginPath()
-        ctx.arc(sx(nx), sy(ny), r * zoom, 0, 6.2832)
-        ctx.fill()
-
-    px, py, pr = snap["player"]
-    ctx.fillStyle = "#58a6ff"
-    ctx.beginPath()
-    ctx.arc(sx(px), sy(py), pr * zoom, 0, 6.2832)
-    ctx.fill()
-    ctx.strokeStyle = "#e6edf3"
-    ctx.lineWidth = 3
-    ctx.stroke()
-
-    if snap["state"] == "PAUSED":
-        ctx.fillStyle = "rgba(13,17,23,0.72)"
-        ctx.fillRect(0, 0, W, H)
-        ctx.fillStyle = "#e6edf3"
-        ctx.font = "bold 44px Segoe UI, sans-serif"
-        ctx.fillText("PAUSADO", W / 2 - 105, H / 2 + 15)
-        ctx.font = "16px Segoe UI, sans-serif"
-        ctx.fillText("pressione P para continuar", W / 2 - 110, H / 2 + 50)
-
-def frame(dt, dx, dy):
-    game.set_input(dx, dy)
-    game.step(dt)
-    snap = game.snapshot()
-    render(snap)
-    return json.dumps(snap)
-
-def control(action):
-    if action == "pause":
-        game.toggle_pause()
-    elif action == "restart":
-        game.restart()
-    elif action == "start":
-        game.start()
-    return json.dumps(game.snapshot())
-`;
-
-// ---------------------------------------------------------------- boot
-function setStatus(t) { STATUS.textContent = t; }
-
-function showOverlay(html) {
-  OV.innerHTML = '<div class="card">' + html + '</div>';
-  OV.classList.remove("hidden");
+function fitCanvas() {
+  const w = window.innerWidth, h = window.innerHeight;
+  if (canvas.width === w && canvas.height === h) return;
+  canvas.width = w;
+  canvas.height = h;
+  if (ready) pyodide.globals.get("set_view")(w, h);
 }
-function hideOverlay() { OV.classList.add("hidden"); }
 
-const CDN = "https://cdn.jsdelivr.net/gh/ShinigameBR/python-simple-world-iaj@main/";
+let pyodide = null;
+
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+
+  if (keys.has("KeyP")) { keys.delete("KeyP"); control("pause"); }
+  if (keys.has("KeyR")) { keys.delete("KeyR"); control("restart"); }
+  if (keys.has("Escape")) { keys.delete("Escape"); control("menu"); }
+  if (keys.has("Enter")) { keys.delete("Enter"); control("start"); }
+
+  let dx = 0, dy = 0;
+  for (const code of keys) {
+    const m = MOVE[code];
+    if (m) { dx += m[0]; dy += m[1]; }
+  }
+
+  render(frame(dt, dx, dy));
+  requestAnimationFrame(loop);
+}
 
 async function fetchText(remote) {
+  const CDN = "https://cdn.jsdelivr.net/gh/ShinigameBR/python-simple-world-iaj@main/";
   for (const base of ["", CDN]) {
     try {
       const res = await fetch(base + remote);
@@ -281,7 +456,7 @@ async function fetchText(remote) {
 }
 
 async function boot() {
-  setStatus("Baixando Pyodide (CPython 3.12 em WebAssembly)…");
+  bootMsg.textContent = "Baixando Pyodide (CPython em WebAssembly)…";
   const { loadPyodide } = await import(
     "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.mjs"
   );
@@ -289,7 +464,7 @@ async function boot() {
     indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/",
   });
 
-  setStatus("Carregando o modelo do jogo…");
+  bootMsg.textContent = "Carregando o modelo do jogo…";
   pyodide.FS.mkdirTree("/app/game");
   const files = [
     ["config.json", "/app/config.json"],
@@ -303,94 +478,30 @@ async function boot() {
     pyodide.FS.writeFile(local, await fetchText(remote));
   }
 
-  setStatus("Montando o jogo…");
+  bootMsg.textContent = "Montando o jogo…";
   await pyodide.runPythonAsync(PY);
+
+  fitCanvas();
   ready = true;
-  setStatus("Pronto — o botão começa a partida.");
-  showOverlay(
-    "<h2>Simple World</h2>" +
-    "<p>Sobreviva até o tempo acabar. Os inimigos vermelhos perseguem em linha " +
-    "reta e ferem por contato. Só as áreas próximas do jogador são simuladas; " +
-    "as distantes ficam congeladas.</p>" +
-    "<p>Verde = primeiros socorros. Amarelo = TNT (dano em área).</p>" +
-    "<p class='keys'><kbd>WASD</kbd>/<kbd>setas</kbd> mover &nbsp;·&nbsp; " +
-    "<kbd>P</kbd> pausar &nbsp;·&nbsp; <kbd>R</kbd> reiniciar</p>" +
-    "<button id='play'>Jogar</button>"
-  );
-  document.getElementById("play").addEventListener("click", start);
-}
-
-function callControl(action) {
-  return JSON.parse(pyodide.globals.get("control")(action));
-}
-
-function start() {
-  callControl("restart");
-  hideOverlay();
-  running = true;
+  bootEl.classList.add("hidden");
   last = performance.now();
   requestAnimationFrame(loop);
 }
 
-function readHud(s) {
-  document.getElementById("h-time").textContent = s.timeLeft + "s";
-  document.getElementById("h-health").textContent = s.health;
-  document.getElementById("h-npcs").textContent = s.remainingNpcs;
-  document.getElementById("h-kills").textContent = s.kills;
-  document.getElementById("h-heal").textContent = s.healthPicked;
-  document.getElementById("h-ammo").textContent = s.ammoPicked;
-  document.getElementById("h-areas").textContent = s.activeCells.length;
-  const total = s.grid[0] * s.grid[1];
-  document.getElementById("bar-fill").style.width =
-    (100 * s.activeCells.length / total) + "%";
-}
-
-function endScreen(s) {
-  running = false;
-  const won = s.state === "WON";
-  showOverlay(
-    "<h2>" + (won ? "Você sobreviveu!" : "Você morreu") + "</h2>" +
-    "<p>Tempo sobrevivido: " + s.timeLeft + "s</p>" +
-    "<p>Inimigos abatidos: <b>" + s.kills + "</b> · curas: <b>" +
-    s.healthPicked + "</b> · TNT: <b>" + s.ammoPicked + "</b></p>" +
-    "<button id='again'>Jogar de novo</button>"
-  );
-  document.getElementById("again").addEventListener("click", start);
-}
-
-function loop(now) {
-  if (!running) return;
-  const dt = Math.min((now - last) / 1000, 0.05);
-  last = now;
-
-  if (keys.has("KeyP")) { keys.delete("KeyP"); callControl("pause"); }
-  if (keys.has("KeyR")) { keys.delete("KeyR"); callControl("restart"); }
-
-  let dx = 0, dy = 0;
-  for (const code of keys) {
-    const m = MOVE[code];
-    if (m) { dx += m[0]; dy += m[1]; }
-  }
-
-  const s = JSON.parse(pyodide.globals.get("frame")(dt, dx, dy));
-  readHud(s);
-  if (s.state === "WON" || s.state === "LOST") { endScreen(s); return; }
-  requestAnimationFrame(loop);
-}
-
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Enter" && ready && !running) { start(); return; }
-  if (MOVE[e.code] || e.code === "KeyP" || e.code === "KeyR") {
+  if (MOVE[e.code] || ["KeyP", "KeyR", "Escape", "Enter"].includes(e.code)) {
     e.preventDefault();
     keys.add(e.code);
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.code));
 window.addEventListener("blur", () => keys.clear());
+window.addEventListener("resize", fitCanvas);
+canvas.addEventListener("click", () => { if (ready) control("start"); });
 
 boot().catch((err) => {
-  setStatus("Erro: " + err);
-  showOverlay("<h2>Não foi possível carregar</h2><p>" + err + "</p>");
+  bootMsg.textContent = "Erro ao carregar o jogo.";
+  bootErr.textContent = err;
 });
 </script>
 </body>

@@ -91,6 +91,14 @@ class GameWeb:
         elif self.state == PAUSED:
             self.state = PLAYING
 
+    def to_menu(self) -> None:
+        self.state = MENU
+
+    def resize(self, width: float, height: float) -> None:
+        self.vp.width = float(width)
+        self.vp.height = float(height)
+        self._center_camera()
+
     def restart(self) -> None:
         seed = self.config.get("random_seed", 42)
         self.rng = random.Random(seed)
@@ -126,7 +134,7 @@ class GameWeb:
 
         for effect in self.effects:
             effect["t"] += dt
-        self.effects = [e for e in self.effects if e["t"] < 0.45]
+        self.effects = [e for e in self.effects if e["t"] < 0.6]
 
         self.kills = player.kills
 
@@ -148,16 +156,27 @@ class GameWeb:
     def snapshot(self) -> dict:
         w = self.world
         player = w.player
-        vis = self.vp.visible_world()
-        left, top, right, bottom = vis
+        left, top, right, bottom = self.vp.visible_world()
+        z = self.zoom
+        # margens iguais as do pygame (items 40px, npcs 60px em espaco de tela)
+        m_item = 40.0 / z
+        m_npc = 60.0 / z
+        npc_max = float(self.config.get("npc", {}).get("health", 100.0))
 
-        npcs, items = [], []
+        npcs, items, areas = [], [], []
+        for row in w.areas:
+            for area in row:
+                if area.right < left or area.bottom < top or area.left > right or area.top > bottom:
+                    continue
+                areas.append([area.col, area.row, area.left, area.top, area.size,
+                              1 if area.active else 0])
         for area in w.active_areas:
             for npc in area.npcs:
-                if left <= npc.x <= right and top <= npc.y <= bottom:
-                    npcs.append([round(npc.x, 1), round(npc.y, 1), npc.radius])
+                if left - m_npc <= npc.x <= right + m_npc and top - m_npc <= npc.y <= bottom + m_npc:
+                    npcs.append([round(npc.x, 1), round(npc.y, 1), npc.radius,
+                                 round(npc.health, 2)])
             for item in area.items:
-                if left <= item.x <= right and top <= item.y <= bottom:
+                if left - m_item <= item.x <= right + m_item and top - m_item <= item.y <= bottom + m_item:
                     items.append([round(item.x, 1), round(item.y, 1), item.kind])
 
         return {
@@ -171,11 +190,18 @@ class GameWeb:
             "ammoPicked": player.ammo_picked,
             "remainingNpcs": w.remaining_npcs,
             "activeCells": [list(c) for c in w.active_cells],
-            "player": [round(player.x, 1), round(player.y, 1), player.radius],
+            "totalCells": w.cols * w.rows,
+            "cols": w.cols,
+            "rows": w.rows,
+            "npcMaxHealth": npc_max,
+            "survivalTime": float(self.config.get("survival_time", 90.0)),
+            "player": [round(player.x, 1), round(player.y, 1), player.radius,
+                       round(player.vx, 3), round(player.vy, 3)],
             "npcs": npcs,
+            "areas": areas,
             "items": items,
             "effects": [[round(e["x"], 1), round(e["y"], 1),
-                          round(e["r"], 1), round(e["t"] / 0.45, 3)]
+                          round(e["r"], 1), round(e["t"] / 0.6, 4)]
                          for e in self.effects],
             "camera": [round(self.vp.x, 1), round(self.vp.y, 1),
                        round(self.vp.world_width, 1),
