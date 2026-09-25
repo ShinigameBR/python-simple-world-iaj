@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple World — Representação do Mundo</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --dim: #8b949e;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  header {
+    width: 100%;
+    max-width: 1100px;
+    padding: 18px 16px 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  h1 { font-size: 19px; margin: 0; font-weight: 600; }
+  header span { color: var(--dim); font-size: 13px; }
+  header a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  header a:hover { text-decoration: underline; }
+  #stage { position: relative; width: min(100%, 1100px); padding: 0 16px; }
+  canvas {
+    width: 100%;
+    display: block;
+    background: #1c2128;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13, 17, 23, 0.88);
+    border-radius: 10px;
+    text-align: center;
+    padding: 24px;
+  }
+  #overlay.hidden { display: none; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 26px 30px;
+    max-width: 560px;
+  }
+  .card h2 { margin: 0 0 6px; font-size: 21px; }
+  .card p { color: var(--dim); margin: 6px 0; font-size: 14px; line-height: 1.55; }
+  .card .keys { margin-top: 14px; font-size: 13px; color: var(--dim); }
+  .card kbd {
+    background: #21262d;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+  }
+  button {
+    margin-top: 18px;
+    background: var(--accent);
+    color: #06121f;
+    border: 0;
+    border-radius: 7px;
+    padding: 10px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  #hud {
+    width: min(100%, 1100px);
+    padding: 10px 16px 6px;
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--dim);
+  }
+  #hud b { color: var(--text); font-weight: 600; }
+  #status {
+    width: min(100%, 1100px);
+    font-size: 13px;
+    color: var(--dim);
+    padding: 0 16px 8px;
+  }
+  #bar {
+    width: min(100%, 1100px);
+    padding: 0 16px 26px;
+  }
+  #bar-track {
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #bar-fill { height: 100%; background: var(--accent); width: 0; transition: width .12s linear; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Simple World</h1>
+  <span>Representação do mundo — grade de áreas, anel de carregamento e NPCs por perseguição direta</span>
+  <a href="https://github.com/ShinigameBR/python-simple-world-iaj">código</a>
+</header>
+
+<div id="status">Carregando Python (Pyodide)…</div>
+
+<div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="overlay"><div class="card"><h2>Carregando…</h2><p>Preparando o ambiente Python.</p></div></div>
+</div>
+
+<div id="bar"><div id="bar-track"><div id="bar-fill"></div></div></div>
+
+<div id="hud">
+  <span>Tempo <b id="h-time">—</b></span>
+  <span>Vida <b id="h-health">—</b></span>
+  <span>Inimigos <b id="h-npcs">—</b></span>
+  <span>Abates <b id="h-kills">—</b></span>
+  <span>Curas <b id="h-heal">—</b></span>
+  <span>TNT <b id="h-ammo">—</b></span>
+  <span>Áreas ativas <b id="h-areas">—</b></span>
+</div>
+
+<script type="module">
+const STATUS = document.getElementById("status");
+const OV = document.getElementById("overlay");
+const canvas = document.getElementById("game");
+
+let pyodide = null;
+let ready = false;
+let running = false;
+let last = 0;
+
+const keys = new Set();
+const MOVE = {
+  ArrowUp: [0, -1], KeyW: [0, -1],
+  ArrowDown: [0, 1], KeyS: [0, 1],
+  ArrowLeft: [-1, 0], KeyA: [-1, 0],
+  ArrowRight: [1, 0], KeyD: [1, 0],
+};
+
+// ---------------------------------------------------------------- Python
+// Roda dentro do Pyodide. Recebe input, avanca a simulacao, desenha no
+// canvas e devolve o estado como JSON (uma unica travessia por quadro).
+const PY = `
+import sys, json
+sys.path.insert(0, "/app")
+from game_web import GameWeb
+import js
+
+game = GameWeb()
+
+def render(snap):
+    frame = js.document.getElementById("game")
+    ctx = frame.getContext("2d")
+    W, H = frame.width, frame.height
+    cx, cy, _ww, _wh = snap["camera"]
+    zoom = snap["zoom"]
+    cols, rows, size = snap["grid"]
+    world_w, world_h = snap["worldSize"]
+    active = set(tuple(c) for c in snap["activeCells"])
+
+    def sx(x): return (x - cx) * zoom
+    def sy(y): return (y - cy) * zoom
+
+    ctx.clearRect(0, 0, W, H)
+    ctx.fillStyle = "#1c2128"
+    ctx.fillRect(0, 0, W, H)
+
+    for r in range(rows):
+        for c in range(cols):
+            on = (c, r) in active
+            ctx.fillStyle = "#1b5e38" if on else "#161b22"
+            ctx.fillRect(sx(c * size), sy(r * size), size * zoom, size * zoom)
+            ctx.strokeStyle = "#30363d"
+            ctx.lineWidth = 2
+            ctx.strokeRect(sx(c * size), sy(r * size), size * zoom, size * zoom)
+
+    for ex, ey, er, t in snap["effects"]:
+        a = 1.0 - t
+        ctx.fillStyle = "rgba(255,170,0," + str(0.30 * a) + ")"
+        ctx.beginPath()
+        ctx.arc(sx(ex), sy(ey), er * zoom * a, 0, 6.2832)
+        ctx.fill()
+        ctx.strokeStyle = "rgba(255,200,60," + str(0.90 * a) + ")"
+        ctx.lineWidth = 3
+        ctx.stroke()
+
+    for ix, iy, kind in snap["items"]:
+        x, y = sx(ix), sy(iy)
+        ctx.fillStyle = "#3fb950" if kind == "health" else "#d29922"
+        ctx.fillRect(x - 8, y - 8, 16, 16)
+        ctx.strokeStyle = "#0d1117"
+        ctx.lineWidth = 2
+        ctx.strokeRect(x - 8, y - 8, 16, 16)
+
+    for nx, ny, r in snap["npcs"]:
+        ctx.fillStyle = "#f85149"
+        ctx.beginPath()
+        ctx.arc(sx(nx), sy(ny), r * zoom, 0, 6.2832)
+        ctx.fill()
+
+    px, py, pr = snap["player"]
+    ctx.fillStyle = "#58a6ff"
+    ctx.beginPath()
+    ctx.arc(sx(px), sy(py), pr * zoom, 0, 6.2832)
+    ctx.fill()
+    ctx.strokeStyle = "#e6edf3"
+    ctx.lineWidth = 3
+    ctx.stroke()
+
+    if snap["state"] == "PAUSED":
+        ctx.fillStyle = "rgba(13,17,23,0.72)"
+        ctx.fillRect(0, 0, W, H)
+        ctx.fillStyle = "#e6edf3"
+        ctx.font = "bold 44px Segoe UI, sans-serif"
+        ctx.fillText("PAUSADO", W / 2 - 105, H / 2 + 15)
+        ctx.font = "16px Segoe UI, sans-serif"
+        ctx.fillText("pressione P para continuar", W / 2 - 110, H / 2 + 50)
+
+def frame(dt, dx, dy):
+    game.set_input(dx, dy)
+    game.step(dt)
+    snap = game.snapshot()
+    render(snap)
+    return json.dumps(snap)
+
+def control(action):
+    if action == "pause":
+        game.toggle_pause()
+    elif action == "restart":
+        game.restart()
+    elif action == "start":
+        game.start()
+    return json.dumps(game.snapshot())
+`;
+
+// ---------------------------------------------------------------- boot
+function setStatus(t) { STATUS.textContent = t; }
+
+function showOverlay(html) {
+  OV.innerHTML = '<div class="card">' + html + '</div>';
+  OV.classList.remove("hidden");
+}
+function hideOverlay() { OV.classList.add("hidden"); }
+
+const CDN = "https://cdn.jsdelivr.net/gh/ShinigameBR/python-simple-world-iaj@main/";
+
+async function fetchText(remote) {
+  for (const base of ["", CDN]) {
+    try {
+      const res = await fetch(base + remote);
+      if (res.ok) return await res.text();
+    } catch (err) {
+      // tenta a proxima origem
+    }
+  }
+  throw new Error("não consegui carregar " + remote);
+}
+
+async function boot() {
+  setStatus("Baixando Pyodide (CPython 3.12 em WebAssembly)…");
+  const { loadPyodide } = await import(
+    "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.mjs"
+  );
+  pyodide = await loadPyodide({
+    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/",
+  });
+
+  setStatus("Carregando o modelo do jogo…");
+  pyodide.FS.mkdirTree("/app/game");
+  const files = [
+    ["config.json", "/app/config.json"],
+    ["game/__init__.py", "/app/game/__init__.py"],
+    ["game/entities.py", "/app/game/entities.py"],
+    ["game/world.py", "/app/game/world.py"],
+    ["game/camera.py", "/app/game/camera.py"],
+    ["web/game_web.py", "/app/game_web.py"],
+  ];
+  for (const [remote, local] of files) {
+    pyodide.FS.writeFile(local, await fetchText(remote));
+  }
+
+  setStatus("Montando o jogo…");
+  await pyodide.runPythonAsync(PY);
+  ready = true;
+  setStatus("Pronto — o botão começa a partida.");
+  showOverlay(
+    "<h2>Simple World</h2>" +
+    "<p>Sobreviva até o tempo acabar. Os inimigos vermelhos perseguem em linha " +
+    "reta e ferem por contato. Só as áreas próximas do jogador são simuladas; " +
+    "as distantes ficam congeladas.</p>" +
+    "<p>Verde = primeiros socorros. Amarelo = TNT (dano em área).</p>" +
+    "<p class='keys'><kbd>WASD</kbd>/<kbd>setas</kbd> mover &nbsp;·&nbsp; " +
+    "<kbd>P</kbd> pausar &nbsp;·&nbsp; <kbd>R</kbd> reiniciar</p>" +
+    "<button id='play'>Jogar</button>"
+  );
+  document.getElementById("play").addEventListener("click", start);
+}
+
+function callControl(action) {
+  return JSON.parse(pyodide.globals.get("control")(action));
+}
+
+function start() {
+  callControl("restart");
+  hideOverlay();
+  running = true;
+  last = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function readHud(s) {
+  document.getElementById("h-time").textContent = s.timeLeft + "s";
+  document.getElementById("h-health").textContent = s.health;
+  document.getElementById("h-npcs").textContent = s.remainingNpcs;
+  document.getElementById("h-kills").textContent = s.kills;
+  document.getElementById("h-heal").textContent = s.healthPicked;
+  document.getElementById("h-ammo").textContent = s.ammoPicked;
+  document.getElementById("h-areas").textContent = s.activeCells.length;
+  const total = s.grid[0] * s.grid[1];
+  document.getElementById("bar-fill").style.width =
+    (100 * s.activeCells.length / total) + "%";
+}
+
+function endScreen(s) {
+  running = false;
+  const won = s.state === "WON";
+  showOverlay(
+    "<h2>" + (won ? "Você sobreviveu!" : "Você morreu") + "</h2>" +
+    "<p>Tempo sobrevivido: " + s.timeLeft + "s</p>" +
+    "<p>Inimigos abatidos: <b>" + s.kills + "</b> · curas: <b>" +
+    s.healthPicked + "</b> · TNT: <b>" + s.ammoPicked + "</b></p>" +
+    "<button id='again'>Jogar de novo</button>"
+  );
+  document.getElementById("again").addEventListener("click", start);
+}
+
+function loop(now) {
+  if (!running) return;
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+
+  if (keys.has("KeyP")) { keys.delete("KeyP"); callControl("pause"); }
+  if (keys.has("KeyR")) { keys.delete("KeyR"); callControl("restart"); }
+
+  let dx = 0, dy = 0;
+  for (const code of keys) {
+    const m = MOVE[code];
+    if (m) { dx += m[0]; dy += m[1]; }
+  }
+
+  const s = JSON.parse(pyodide.globals.get("frame")(dt, dx, dy));
+  readHud(s);
+  if (s.state === "WON" || s.state === "LOST") { endScreen(s); return; }
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Enter" && ready && !running) { start(); return; }
+  if (MOVE[e.code] || e.code === "KeyP" || e.code === "KeyR") {
+    e.preventDefault();
+    keys.add(e.code);
+  }
+});
+window.addEventListener("keyup", (e) => keys.delete(e.code));
+window.addEventListener("blur", () => keys.clear());
+
+boot().catch((err) => {
+  setStatus("Erro: " + err);
+  showOverlay("<h2>Não foi possível carregar</h2><p>" + err + "</p>");
+});
+</script>
+</body>
+</html>
