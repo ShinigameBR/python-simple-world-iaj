@@ -374,9 +374,10 @@ function render(s) {
 const PY = `
 import sys, json
 sys.path.insert(0, "/app")
-from game_web import GameWeb
+from game_web import GameWeb, MODEL_VERSION
 
 game = GameWeb()
+model_version = MODEL_VERSION
 
 def frame(dt, dx, dy):
     game.set_input(dx, dy)
@@ -408,6 +409,10 @@ const MOVE = {
 
 let ready = false;
 let last = 0;
+
+// tem que bater com MODEL_VERSION de game_web.py; se nao bater, o navegador
+// esta usando um game_web.py antigo em cache e a mensagem explica o que fazer.
+const MODEL_VERSION = "2";
 
 const control = (a) => JSON.parse(pyodide.globals.get("control")(a));
 const frame = (dt, dx, dy) =>
@@ -442,17 +447,30 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+const CDN = "https://cdn.jsdelivr.net/gh/ShinigameBR/python-simple-world-iaj@main/";
+
+// mesmosorigens: a propria pagina (GitHub Pages) e, como reserva, o CDN.
+// cada arquivo pode ter mais de um caminho porque o layout publicado e
+// diferente do layout do repositorio.
 async function fetchText(remote) {
-  const CDN = "https://cdn.jsdelivr.net/gh/ShinigameBR/python-simple-world-iaj@main/";
-  for (const base of ["", CDN]) {
+  const paths = Array.isArray(remote) ? remote : [remote];
+  for (const path of paths) {
     try {
-      const res = await fetch(base + remote);
+      const res = await fetch(path);
       if (res.ok) return await res.text();
     } catch (err) {
-      // tenta a proxima origem
+      // tenta o proximo caminho
     }
   }
-  throw new Error("não consegui carregar " + remote);
+  for (const path of paths) {
+    try {
+      const res = await fetch(CDN + path + "?t=" + Date.now());
+      if (res.ok) return await res.text();
+    } catch (err) {
+      // tenta o proximo caminho
+    }
+  }
+  throw new Error("não consegui carregar " + paths.join(" ou "));
 }
 
 async function boot() {
@@ -472,7 +490,7 @@ async function boot() {
     ["game/entities.py", "/app/game/entities.py"],
     ["game/world.py", "/app/game/world.py"],
     ["game/camera.py", "/app/game/camera.py"],
-    ["web/game_web.py", "/app/game_web.py"],
+    [["game_web.py", "web/game_web.py"], "/app/game_web.py"],
   ];
   for (const [remote, local] of files) {
     pyodide.FS.writeFile(local, await fetchText(remote));
@@ -480,6 +498,14 @@ async function boot() {
 
   bootMsg.textContent = "Montando o jogo…";
   await pyodide.runPythonAsync(PY);
+
+  const loaded = pyodide.globals.get("model_version");
+  if (loaded !== MODEL_VERSION) {
+    throw new Error(
+      "modelo desatualizado no cache (site=" + loaded +
+      ", pagina=" + MODEL_VERSION + "). Recarregue com Ctrl+F5."
+    );
+  }
 
   fitCanvas();
   ready = true;
